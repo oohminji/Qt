@@ -1,0 +1,96 @@
+## AiotClient 프로젝트 분석
+
+### 1. `ledkeydev.h` / `ledkeydev.cpp`
+
+- **클래스:** `LedKeyDev`
+- **기능:** LED 및 키 디바이스 (`/dev/ledkey`)를 제어합니다.
+- **주요 멤버:**
+    - `pQFile`: 디바이스 파일에 접근하기 위한 `QFile` 객체.
+    - `pQSocketNotifier`: 디바이스 파일의 읽기 이벤트를 감지하는 `QSocketNotifier` 객체.
+- **주요 함수:**
+    - `LedKeyDev(QWidget *parent)`: 생성자. 디바이스 파일을 열고 `QSocketNotifier`를 설정하여 키 입력을 비동기적으로 처리합니다.
+    - `readKeyDataSlot(int)`: 키 데이터를 읽고 `updateKeyDataSig` 시그널을 발생시킵니다.
+    - `writeLedDataSlot(int)`: LED에 데이터를 씁니다.
+- **시그널:**
+    - `updateKeyDataSig(int)`: 새로운 키 데이터가 있을 때 발생합니다.
+
+### 2. `main.cpp`
+
+- **기능:** 애플리케이션의 진입점입니다.
+- **주요 함수:**
+    - `main(int argc, char *argv[])`: `QApplication` 객체를 생성하고 `MainWidget`을 표시합니다.
+
+### 3. `mainwidget.h` / `mainwidget.cpp`
+
+- **클래스:** `MainWidget`
+- **기능:** 애플리케이션의 메인 창 역할을 합니다. 3개의 탭을 포함하는 `QTabWidget`을 관리합니다.
+- **주요 멤버:**
+    - `ui`: `Ui::MainWidget` 객체.
+    - `pTab1DevControl`: `Tab1DevControl` 객체.
+    - `pTab2SocketClient`: `Tab2SocketClient` 객체.
+    - `pTab3ControlPannel`: `Tab3ControlPannel` 객체.
+- **주요 함수:**
+    - `MainWidget(QWidget *parent)`: 생성자. 각 탭에 해당하는 위젯들을 생성하고 레이아웃을 설정합니다. 또한, 탭 간의 통신을 위한 시그널-슬롯 연결을 설정합니다.
+- **시그널-슬롯 연결:**
+    - `pTab2SocketClient`의 `ledWriteSig` -> `pTab1DevControl`의 다이얼 값 설정.
+    - `pTab1DevControl`의 `updateKeyDataSig` -> `pTab2SocketClient`의 소켓 데이터 전송.
+    - `pTab3ControlPannel`의 `LampSig` -> `pTab2SocketClient`의 램프 제어 소켓 전송.
+    - `pTab3ControlPannel`의 `PlugSig` -> `pTab2SocketClient`의 플러그 제어 소켓 전송.
+
+### 4. `socketclient.h` / `socketclient.cpp`
+
+- **클래스:** `SocketClient`
+- **기능:** TCP 소켓 통신을 처리합니다.
+- **주요 멤버:**
+    - `pQTcpSocket`: `QTcpSocket` 객체.
+- **주요 함수:**
+    - `SocketClient(QWidget *parent)`: 생성자. 소켓 관련 시그널-슬롯을 연결합니다.
+    - `connectToServerSlot(bool &)`: 서버에 연결합니다.
+    - `socketReadDataSlot()`: 소켓에서 데이터를 읽고 `socketRecvDataSig` 시그널을 발생시킵니다.
+    - `socketWriteDataSlot(QString)`: 소켓에 데이터를 씁니다.
+- **시그널:**
+    - `socketRecvDataSig(QString)`: 소켓에서 데이터를 수신했을 때 발생합니다.
+
+### 5. `tab1devcontrol.h` / `tab1devcontrol.cpp`
+
+- **클래스:** `Tab1DevControl`
+- **기능:** 첫 번째 탭의 UI 및 디바이스 제어를 담당합니다. LED, 키, 타이머 등을 제어합니다.
+- **주요 멤버:**
+    - `ui`: `Ui::Tab1DevControl` 객체.
+    - `pLedKeyDev`: `LedKeyDev` 객체.
+    - `pQTimer`: `QTimer` 객체.
+    - `pQButtonGroup`: `QButtonGroup` 객체.
+- **주요 함수:**
+    - `Tab1DevControl(QWidget *parent)`: 생성자. UI 요소들을 초기화하고 시그널-슬롯을 연결합니다.
+    - `updateCheckBoxKeySlot(int)`: 키 입력에 따라 체크박스 상태를 업데이트합니다.
+    - `updateCheckBoxMouseSlot(int)`: 마우스 클릭에 따라 체크박스 상태를 업데이트합니다.
+    - `on_pPBtimerStart_clicked(bool)`: 타이머를 시작하거나 중지합니다.
+
+### 6. `tab2socketclient.h` / `tab2socketclient.cpp`
+
+- **클래스:** `Tab2SocketClient`
+- **기능:** 두 번째 탭의 UI 및 소켓 통신을 담당합니다.
+- **주요 멤버:**
+    - `ui`: `Ui::Tab2SocketClient` 객체.
+    - `pSocketClient`: `SocketClient` 객체.
+- **주요 함수:**
+    - `Tab2SocketClient(QWidget *parent)`: 생성자. `SocketClient` 객체를 생성하고 시그널-슬롯을 연결합니다.
+    - `on_pPBserverConnect_toggled(bool)`: 서버 연결/해제를 처리합니다.
+    - `updateRecvDataSlot(QString)`: 수신된 데이터를 처리하고 UI에 표시합니다.
+    - `socketSendToLinux(int)`: 키 데이터를 리눅스 서버로 전송합니다.
+    - `socketLamp(bool)`: 램프 제어 명령을 전송합니다.
+    - `socketPlug(bool)`: 플러그 제어 명령을 전송합니다.
+
+### 7. `tab3controlpannel.h` / `tab3controlpannel.cpp`
+
+- **클래스:** `Tab3ControlPannel`
+- **기능:** 세 번째 탭의 UI 및 제어판 기능을 담당합니다.
+- **주요 멤버:**
+    - `ui`: `Ui::Tab3ControlPannel` 객체.
+    - `pControlPannel`: `SocketClient` 객체.
+- **주요 함수:**
+    - `on_pPBlamp_toggled(bool)`: 램프 버튼 상태가 변경되면 `LampSig` 시그널을 발생시킵니다.
+    - `on_pPBplug_toggled(bool)`: 플러그 버튼 상태가 변경되면 `PlugSig` 시그널을 발생시킵니다.
+- **시그널:**
+    - `LampSig(bool)`: 램프 상태 변경 시 발생합니다.
+    - `PlugSig(bool)`: 플러그 상태 변경 시 발생합니다.
